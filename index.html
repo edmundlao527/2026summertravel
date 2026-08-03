@@ -10,23 +10,21 @@
   <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- SortableJS -->
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 
   <!-- Firebase 9 SDK (模組化即時資料庫) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // ⚠️ 請在此處貼上您從 Firebase 獲得的專案設定：
+    // 您提供的 Firebase 專案金鑰
     const firebaseConfig = {
-  apiKey: "AIzaSyBAxK-a-OHtufuf6EeUH7SUKiEhEL-1gLg",
-  authDomain: "summer-travel-f02a8.firebaseapp.com",
-  projectId: "summer-travel-f02a8",
-  storageBucket: "summer-travel-f02a8.firebasestorage.app",
-  messagingSenderId: "800850868647",
-  appId: "1:800850868647:web:b7e2a400918a3bc2aa1e82"
-};
+      apiKey: "AIzaSyBAxK-a-OHtufuf6EeUH7SUKiEhEL-1gLg",
+      authDomain: "summer-travel-f02a8.firebaseapp.com",
+      projectId: "summer-travel-f02a8",
+      storageBucket: "summer-travel-f02a8.firebasestorage.app",
+      messagingSenderId: "800850868647",
+      appId: "1:800850868647:web:b7e2a400918a3bc2aa1e82"
+    };
 
     // 初始化 Firebase
     const app = initializeApp(firebaseConfig);
@@ -51,14 +49,11 @@
   <!-- 1. 頂部 Header -->
   <header class="sticky top-0 z-30 bg-[#FEFEF7]/90 backdrop-blur-md px-5 pt-4 pb-2 border-b border-[#F3EFCF]">
     <div class="flex items-center justify-between mb-3">
-      <h1 class="text-2xl font-bold text-[#E69C24] tracking-wide flex items-center gap-1">
-        <span>Summer Travel</span>
-        <!-- 同步連線狀態標籤 -->
-        <span :class="isSynced ? 'bg-[#E4F2E7] text-[#2D7A47]' : 'bg-red-100 text-red-600'" class="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-          <span class="w-1.5 h-1.5 rounded-full" :class="isSynced ? 'bg-[#2D7A47]' : 'bg-red-600'"></span>
-          {{ isSynced ? '雲端已同步' : '同步中...' }}
-        </span>
-      </h1>
+   <h1 class="text-2xl font-bold text-[#E69C24] tracking-wide flex items-center gap-2">
+  <span>Summer Travel</span>
+  <!-- 正方形圖片轉圓形標籤 -->
+  <img src="topicon.jpeg" alt="Travel Icon" class="w-8 h-8 rounded-full object-cover border border-[#F3E2B6] shadow-xs">
+</h1>
       <!-- 功能導覽按鈕 -->
       <nav class="flex items-center gap-1 bg-[#F7F3DA] p-1 rounded-2xl">
         <button @click="currentTab = 'itinerary'" :class="currentTab === 'itinerary' ? 'bg-[#E69C24] text-white' : 'text-[#8C826B]'" class="p-2 rounded-xl"><i data-lucide="list-todo" class="w-4 h-4"></i></button>
@@ -105,16 +100,18 @@
         </div>
       </div>
 
-      <!-- 每日行程列表 -->
+      <!-- 每日行程列表（自動按時間排序） -->
       <div v-else class="space-y-3">
         <div id="itinerary-list" class="space-y-3">
+          <div v-if="currentDayItems.length === 0" class="text-center py-8 text-xs text-gray-400">當天還沒有行程，點擊下方新增按鈕吧！</div>
           <div v-for="item in currentDayItems" :key="item.id" class="bg-white border border-[#F0EAD2] p-3.5 rounded-2xl shadow-sm">
             <div class="flex items-center justify-between mb-2">
               <div class="flex items-center gap-2">
                 <select v-model="item.category" @change="syncToCloud" :class="categoryStyle(item.category)" class="text-xs px-2 py-1 rounded-full font-bold outline-none cursor-pointer">
                   <option value="景點">景點</option><option value="美食">美食</option><option value="購物">購物</option><option value="交通">交通</option><option value="航班">航班</option><option value="其他">其他</option>
                 </select>
-                <input type="time" v-model="item.time" @change="syncToCloud" class="text-xs font-bold text-gray-600 bg-[#F9F8F3] px-2 py-0.5 rounded-md border-0">
+                <!-- 時間選單，修改後會自動重新排序 -->
+                <input type="time" v-model="item.time" @change="syncToCloud" class="text-xs font-bold text-gray-600 bg-[#F9F8F3] px-2 py-0.5 rounded-md border-0 focus:ring-1 focus:ring-[#E69C24]">
               </div>
               <button @click="deleteItem(item.id)" class="text-gray-300 hover:text-red-400 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div>
@@ -179,8 +176,6 @@
       <!-- 新增記帳區塊 -->
       <div class="bg-white p-3.5 rounded-2xl border border-[#F0EAD2] space-y-2.5">
         <div class="font-bold text-xs text-gray-600">新增一筆支出</div>
-        
-        <!-- 第一排：分類與貨幣/金額 -->
         <div class="flex gap-1.5">
           <select v-model="newExpense.category" class="w-24 text-xs bg-[#FAF9F5] px-2 py-1.5 rounded-xl border border-[#E8DFC0] font-bold">
             <option value="交通">🚗 交通</option>
@@ -196,10 +191,7 @@
           </select>
           <input v-model.number="newExpense.amount" type="number" placeholder="金額" class="flex-1 px-2.5 py-1.5 text-xs bg-[#FAF9F5] rounded-xl border border-[#E8DFC0] font-bold">
         </div>
-
-        <!-- 第二排：支出詳情備註 -->
         <input v-model="newExpense.note" placeholder="✏️ 詳情備註 (例如：築地市場壽司、悠遊卡加值...)" class="w-full px-3 py-1.5 text-xs bg-[#FAF9F5] rounded-xl border border-[#E8DFC0]">
-
         <button @click="addExpense" class="w-full py-2 bg-[#E69C24] text-white text-xs font-bold rounded-xl shadow-xs">新增記帳</button>
       </div>
 
@@ -264,7 +256,6 @@
       const totalDays = ref(12); // 8月5日 至 8月16日 (共 12 天)
       const isSynced = ref(false);
 
-      // 匯率預設值（可自由更改）：100日幣 ≈ 5.3 MOP，100台幣 ≈ 25 MOP
       const rates = ref({ JPY: 5.3, TWD: 25.0 });
 
       const todos = ref([]);
@@ -276,7 +267,6 @@
       const newShoppingText = ref('');
       const newExpense = ref({ category: '飲食', currency: 'JPY', amount: null, note: '' });
 
-      // 幣別換算成 MOP 澳門幣
       const convertToMOP = (amount, currency) => {
         if (!amount) return 0;
         if (currency === 'MOP') return amount;
@@ -285,7 +275,6 @@
         return amount;
       };
 
-      // 將資料即時推送到 Firebase 雲端
       const syncToCloud = async () => {
         if (!window.db) return;
         try {
@@ -299,7 +288,6 @@
         } catch(e) { console.error("雲端同步失敗", e); }
       };
 
-      // 監聽 Firebase 雲端資料
       const listenCloudData = () => {
         let timer = setInterval(() => {
           if (window.db && window.onSnapshot) {
@@ -320,8 +308,17 @@
         }, 300);
       };
 
-      // 計算屬性
-      const currentDayItems = computed(() => itineraryItems.value.filter(item => item.day === selectedDay.value));
+      // 🌟 當天行程列表：根據 time (時間 HH:mm) 自動由早到晚排序
+      const currentDayItems = computed(() => {
+        return itineraryItems.value
+          .filter(item => item.day === selectedDay.value)
+          .sort((a, b) => {
+            if (!a.time) return 1;
+            if (!b.time) return -1;
+            return a.time.localeCompare(b.time);
+          });
+      });
+
       const currentDayExpenses = computed(() => expenses.value.filter(exp => exp.day === selectedDay.value));
       
       const dayTotalMOP = computed(() => {
@@ -343,7 +340,21 @@
       };
 
       const addNewItem = () => {
-        itineraryItems.value.push({ id: Date.now(), day: selectedDay.value, category: '景點', time: '12:00', location: '', note: '' });
+        // 預設抓取目前最後一個行程的時間，若沒有則預設 09:00
+        let defaultTime = "09:00";
+        if (currentDayItems.value.length > 0) {
+          const lastTime = currentDayItems.value[currentDayItems.value.length - 1].time;
+          if (lastTime) defaultTime = lastTime;
+        }
+
+        itineraryItems.value.push({
+          id: Date.now(),
+          day: selectedDay.value,
+          category: '景點',
+          time: defaultTime,
+          location: '',
+          note: ''
+        });
         syncToCloud();
       };
 
