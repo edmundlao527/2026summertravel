@@ -74,9 +74,9 @@
         <span>PRE</span><span class="text-[10px] opacity-80">TODO</span>
       </button>
       <button v-for="d in totalDays" :key="d" @click="selectedDay = d" :class="selectedDay === d ? 'bg-[#FFF3C4] text-[#B87B14] border-2 border-[#E69C24]' : 'bg-[#F4F4EB] text-[#8C826B]'" class="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold flex flex-col items-center min-w-[60px]">
-  <span class="text-[10px] opacity-70">DAY {{ d }}</span>
-  <span class="text-xs font-bold">8/{{ d + 4 }}</span>
-</button>
+        <span class="text-[10px] opacity-70">DAY {{ d }}</span>
+        <span class="text-xs font-bold">8/{{ d + 4 }}</span>
+      </button>
     </div>
   </header>
 
@@ -121,13 +121,6 @@
             <div class="space-y-1.5 pl-2">
               <input v-model="item.location" @change="syncToCloud" placeholder="輸入地點名稱..." class="w-full text-base font-bold text-[#4A4A4A] border-b border-transparent focus:border-[#E69C24] outline-none">
               <input v-model="item.note" @change="syncToCloud" placeholder="✏️ 備註 (門票、必吃清單等)" class="w-full text-xs text-gray-500 bg-[#FAF9F5] px-2.5 py-1.5 rounded-lg border-0 outline-none">
-              <div v-if="item.category === '景點'" class="mt-2 p-2.5 bg-[#FFF0F5] border border-[#FFD6E7] rounded-xl text-xs space-y-1.5">
-                <label class="flex items-center gap-2 text-[#C74375] font-bold cursor-pointer">
-                  <input type="checkbox" v-model="item.hasBabyFacility" @change="syncToCloud" class="accent-[#C74375] rounded">
-                  <span>🍼 設有育嬰設施</span>
-                </label>
-                <input v-if="item.hasBabyFacility" v-model="item.babyNote" @change="syncToCloud" placeholder="設施位置/細節備註..." class="w-full text-xs text-gray-600 bg-white/80 px-2 py-1 rounded-lg border border-[#FFC2D9] outline-none">
-              </div>
               <div class="flex items-center gap-2 pt-1">
                 <a :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(item.location || '目的地')" target="_blank" class="flex-1 py-1.5 bg-[#FFF8E8] text-[#B87B14] rounded-xl text-xs font-bold flex items-center justify-center gap-1 border border-[#F3E2B6]"><i data-lucide="map" class="w-3.5 h-3.5"></i> 地圖</a>
                 <a :href="'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(item.location || '目的地')" target="_blank" class="flex-1 py-1.5 bg-[#EEF5FF] text-[#3B82F6] rounded-xl text-xs font-bold flex items-center justify-center gap-1 border border-[#C6DCFF]"><i data-lucide="navigation" class="w-3.5 h-3.5"></i> 導航</a>
@@ -149,41 +142,65 @@
       </div>
     </div>
 
-    <!-- C. 共用即時記帳區 (Expenses) -->
+    <!-- C. 多幣別記帳區 (Expenses) -->
     <div v-if="currentTab === 'expenses'" class="space-y-3">
+      <!-- 匯率與總額統計面板 -->
       <div class="bg-[#FFF9E6] p-4 rounded-2xl border border-[#F3E7B2] space-y-3">
-        <div class="flex items-center justify-between border-b border-[#E8DFC0] pb-2 text-xs text-[#8C826B]">
-          <span class="font-bold">預設匯率 (外幣 ➔ TWD)</span>
-          <div class="flex items-center gap-1">
-            <span>1 外幣 =</span>
-            <input type="number" step="0.001" v-model.number="exchangeRate" @change="syncToCloud" class="w-16 text-center font-bold bg-white px-1 py-0.5 rounded border border-[#D5CA9F]">
-            <span>TWD</span>
+        <div class="space-y-1.5 border-b border-[#E8DFC0] pb-2.5 text-xs text-[#8C826B]">
+          <div class="font-bold mb-1">匯率設定 (自動算回 MOP 澳門幣)</div>
+          <div class="flex items-center justify-between">
+            <span>100 日幣 JPY =</span>
+            <div class="flex items-center gap-1">
+              <input type="number" step="0.01" v-model.number="rates.JPY" @change="syncToCloud" class="w-16 text-center font-bold bg-white px-1 py-0.5 rounded border border-[#D5CA9F]">
+              <span>MOP</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>100 台幣 TWD =</span>
+            <div class="flex items-center gap-1">
+              <input type="number" step="0.01" v-model.number="rates.TWD" @change="syncToCloud" class="w-16 text-center font-bold bg-white px-1 py-0.5 rounded border border-[#D5CA9F]">
+              <span>MOP</span>
+            </div>
           </div>
         </div>
+        
         <div class="grid grid-cols-2 gap-2 text-center">
           <div class="bg-white/80 p-2.5 rounded-xl border border-[#E8DFC0]">
             <div class="text-[11px] text-gray-500">DAY {{ selectedDay }} 消費</div>
-            <div class="text-base font-bold text-[#E69C24]">NT$ {{ Math.round(dayTotalTWD) }}</div>
+            <div class="text-base font-bold text-[#E69C24]">MOP$ {{ Math.round(dayTotalMOP) }}</div>
           </div>
           <div class="bg-white/80 p-2.5 rounded-xl border border-[#E8DFC0]">
             <div class="text-[11px] text-gray-500">全行程總消費</div>
-            <div class="text-base font-bold text-[#2D7A47]">NT$ {{ Math.round(grandTotalTWD) }}</div>
+            <div class="text-base font-bold text-[#2D7A47]">MOP$ {{ Math.round(grandTotalMOP) }}</div>
           </div>
         </div>
       </div>
 
-      <!-- 新增記帳（可標示付款人） -->
-      <div class="bg-white p-3.5 rounded-2xl border border-[#F0EAD2] space-y-2">
-        <div class="font-bold text-xs text-gray-600 mb-1">新增一筆共同支出</div>
+      <!-- 新增記帳區塊 -->
+      <div class="bg-white p-3.5 rounded-2xl border border-[#F0EAD2] space-y-2.5">
+        <div class="font-bold text-xs text-gray-600">新增一筆支出</div>
+        
+        <!-- 第一排：分類與貨幣/金額 -->
         <div class="flex gap-1.5">
-          <input v-model="newExpense.payer" placeholder="付款人" class="w-16 px-2 py-1.5 text-xs bg-[#FAF9F5] rounded-xl border border-[#E8DFC0]">
-          <input v-model="newExpense.item" placeholder="品項..." class="flex-1 px-2 py-1.5 text-xs bg-[#FAF9F5] rounded-xl border border-[#E8DFC0]">
-          <input v-model.number="newExpense.amount" type="number" placeholder="金額" class="w-16 px-2 py-1.5 text-xs bg-[#FAF9F5] rounded-xl border border-[#E8DFC0]">
-          <select v-model="newExpense.currency" class="text-xs bg-[#FAF9F5] px-1 py-1.5 rounded-xl border border-[#E8DFC0] font-bold">
-            <option value="FOREIGN">外幣</option><option value="TWD">台幣 $</option>
+          <select v-model="newExpense.category" class="w-24 text-xs bg-[#FAF9F5] px-2 py-1.5 rounded-xl border border-[#E8DFC0] font-bold">
+            <option value="交通">🚗 交通</option>
+            <option value="飲食">🍜 飲食</option>
+            <option value="購物">🛍️ 購物</option>
+            <option value="娛樂">🎟️ 娛樂</option>
+            <option value="其他">📦 其他</option>
           </select>
+          <select v-model="newExpense.currency" class="w-20 text-xs bg-[#FAF9F5] px-1 py-1.5 rounded-xl border border-[#E8DFC0] font-bold">
+            <option value="JPY">日幣 ¥</option>
+            <option value="TWD">台幣 $</option>
+            <option value="MOP">澳門幣</option>
+          </select>
+          <input v-model.number="newExpense.amount" type="number" placeholder="金額" class="flex-1 px-2.5 py-1.5 text-xs bg-[#FAF9F5] rounded-xl border border-[#E8DFC0] font-bold">
         </div>
-        <button @click="addExpense" class="w-full py-2 bg-[#E69C24] text-white text-xs font-bold rounded-xl shadow-xs">新增記帳（自動同步全家手機）</button>
+
+        <!-- 第二排：支出詳情備註 -->
+        <input v-model="newExpense.note" placeholder="✏️ 詳情備註 (例如：築地市場壽司、悠遊卡加值...)" class="w-full px-3 py-1.5 text-xs bg-[#FAF9F5] rounded-xl border border-[#E8DFC0]">
+
+        <button @click="addExpense" class="w-full py-2 bg-[#E69C24] text-white text-xs font-bold rounded-xl shadow-xs">新增記帳</button>
       </div>
 
       <!-- 當天帳目列表 -->
@@ -191,15 +208,21 @@
         <div class="font-bold text-xs text-gray-500 mb-2">DAY {{ selectedDay }} 支出明細</div>
         <div v-if="currentDayExpenses.length === 0" class="text-center py-4 text-xs text-gray-300">今天還沒有記帳喔</div>
         <ul class="space-y-2">
-          <li v-for="exp in currentDayExpenses" :key="exp.id" class="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
-            <div>
-              <span class="font-bold text-[#B87B14] bg-[#FFF3C4] px-1.5 py-0.5 rounded text-[10px] mr-1">{{ exp.payer || '大家' }}</span>
-              <span class="font-medium text-gray-700">{{ exp.item }}</span>
+          <li v-for="exp in currentDayExpenses" :key="exp.id" class="flex items-center justify-between text-xs py-2 border-b border-gray-50 last:border-0">
+            <div class="space-y-0.5">
+              <div class="flex items-center gap-1.5">
+                <span class="font-bold px-2 py-0.5 rounded-md text-[10px]" :class="expenseBadgeStyle(exp.category)">{{ exp.category }}</span>
+                <span class="font-medium text-gray-700">{{ exp.note || '無備註' }}</span>
+              </div>
             </div>
             <div class="flex items-center gap-3">
               <div class="text-right">
-                <span class="font-bold text-gray-800">{{ exp.currency === 'FOREIGN' ? '外幣' : '$' }} {{ exp.amount }}</span>
-                <span v-if="exp.currency === 'FOREIGN'" class="text-[10px] text-gray-400 block">≈ NT$ {{ Math.round(exp.amount * exchangeRate) }}</span>
+                <span class="font-bold text-gray-800">
+                  {{ exp.currency === 'JPY' ? '¥' : (exp.currency === 'TWD' ? '$' : 'MOP$') }} {{ exp.amount }}
+                </span>
+                <span v-if="exp.currency !== 'MOP'" class="text-[10px] text-gray-400 block">
+                  ≈ MOP$ {{ Math.round(convertToMOP(exp.amount, exp.currency)) }}
+                </span>
               </div>
               <button @click="deleteExpense(exp.id)" class="text-gray-300 hover:text-red-400"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
             </div>
@@ -238,9 +261,11 @@
     setup() {
       const currentTab = ref('itinerary');
       const selectedDay = ref(1);
-      const totalDays = ref(12);
-      const exchangeRate = ref(1.0);
+      const totalDays = ref(12); // 8月5日 至 8月16日 (共 12 天)
       const isSynced = ref(false);
+
+      // 匯率預設值（可自由更改）：100日幣 ≈ 5.3 MOP，100台幣 ≈ 25 MOP
+      const rates = ref({ JPY: 5.3, TWD: 25.0 });
 
       const todos = ref([]);
       const shoppingList = ref([]);
@@ -249,7 +274,16 @@
 
       const newTodoText = ref('');
       const newShoppingText = ref('');
-      const newExpense = ref({ payer: '我', item: '', amount: null, currency: 'FOREIGN' });
+      const newExpense = ref({ category: '飲食', currency: 'JPY', amount: null, note: '' });
+
+      // 幣別換算成 MOP 澳門幣
+      const convertToMOP = (amount, currency) => {
+        if (!amount) return 0;
+        if (currency === 'MOP') return amount;
+        if (currency === 'JPY') return (amount / 100) * rates.value.JPY;
+        if (currency === 'TWD') return (amount / 100) * rates.value.TWD;
+        return amount;
+      };
 
       // 將資料即時推送到 Firebase 雲端
       const syncToCloud = async () => {
@@ -260,7 +294,7 @@
             shoppingList: shoppingList.value,
             itineraryItems: itineraryItems.value,
             expenses: expenses.value,
-            exchangeRate: exchangeRate.value
+            rates: rates.value
           });
         } catch(e) { console.error("雲端同步失敗", e); }
       };
@@ -277,7 +311,7 @@
                 shoppingList.value = data.shoppingList || [];
                 itineraryItems.value = data.itineraryItems || [];
                 expenses.value = data.expenses || [];
-                exchangeRate.value = data.exchangeRate || 1.0;
+                rates.value = data.rates || { JPY: 5.3, TWD: 25.0 };
               }
               isSynced.value = true;
               refreshIcons();
@@ -290,12 +324,12 @@
       const currentDayItems = computed(() => itineraryItems.value.filter(item => item.day === selectedDay.value));
       const currentDayExpenses = computed(() => expenses.value.filter(exp => exp.day === selectedDay.value));
       
-      const dayTotalTWD = computed(() => {
-        return currentDayExpenses.value.reduce((sum, exp) => sum + (exp.currency === 'FOREIGN' ? exp.amount * exchangeRate.value : exp.amount), 0);
+      const dayTotalMOP = computed(() => {
+        return currentDayExpenses.value.reduce((sum, exp) => sum + convertToMOP(exp.amount, exp.currency), 0);
       });
 
-      const grandTotalTWD = computed(() => {
-        return expenses.value.reduce((sum, exp) => sum + (exp.currency === 'FOREIGN' ? exp.amount * exchangeRate.value : exp.amount), 0);
+      const grandTotalMOP = computed(() => {
+        return expenses.value.reduce((sum, exp) => sum + convertToMOP(exp.amount, exp.currency), 0);
       });
 
       const categoryStyle = (cat) => {
@@ -303,8 +337,13 @@
         return styles[cat] || styles['其他'];
       };
 
+      const expenseBadgeStyle = (cat) => {
+        const styles = { '交通': 'bg-[#E6F8F6] text-[#14B8A6]', '飲食': 'bg-[#FFF0F0] text-[#FF4D4D]', '購物': 'bg-[#FFF0F5] text-[#C74375]', '娛樂': 'bg-[#EBF5FF] text-[#2B7FFF]', '其他': 'bg-gray-100 text-gray-600' };
+        return styles[cat] || styles['其他'];
+      };
+
       const addNewItem = () => {
-        itineraryItems.value.push({ id: Date.now(), day: selectedDay.value, category: '景點', time: '12:00', location: '', note: '', hasBabyFacility: false, babyNote: '' });
+        itineraryItems.value.push({ id: Date.now(), day: selectedDay.value, category: '景點', time: '12:00', location: '', note: '' });
         syncToCloud();
       };
 
@@ -328,10 +367,17 @@
       };
 
       const addExpense = () => {
-        if (!newExpense.value.item || !newExpense.value.amount) return;
-        expenses.value.push({ id: Date.now(), day: selectedDay.value, payer: newExpense.value.payer, item: newExpense.value.item, amount: newExpense.value.amount, currency: newExpense.value.currency });
-        newExpense.value.item = '';
+        if (!newExpense.value.amount) return;
+        expenses.value.push({
+          id: Date.now(),
+          day: selectedDay.value,
+          category: newExpense.value.category,
+          currency: newExpense.value.currency,
+          amount: newExpense.value.amount,
+          note: newExpense.value.note
+        });
         newExpense.value.amount = null;
+        newExpense.value.note = '';
         syncToCloud();
       };
 
@@ -351,11 +397,11 @@
       });
 
       return {
-        currentTab, selectedDay, totalDays, exchangeRate, isSynced,
+        currentTab, selectedDay, totalDays, rates, isSynced,
         newTodoText, todos, newShoppingText, shoppingList,
         itineraryItems, currentDayItems, newExpense, expenses, currentDayExpenses,
-        dayTotalTWD, grandTotalTWD, categoryStyle, addNewItem, deleteItem,
-        addTodo, addShopping, addExpense, deleteExpense, syncToCloud
+        dayTotalMOP, grandTotalMOP, convertToMOP, categoryStyle, expenseBadgeStyle,
+        addNewItem, deleteItem, addTodo, addShopping, addExpense, deleteExpense, syncToCloud
       };
     }
   }).mount('#app');
