@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Summer Travel - 隨身旅遊助手</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Vue 3 -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- SortableJS -->
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+  <!-- Firebase 9 SDK (模組化即時資料庫) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // ⚠️ 請在此處貼上您從 Firebase 獲得的專案設定：
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT_ID.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    // 初始化 Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    window.db = db;
+    window.doc = doc;
+    window.onSnapshot = onSnapshot;
+    window.setDoc = setDoc;
+  </script>
+
+  <style>
+    body { background-color: #FAFAEE; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; color: #4A4A4A; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    .app-container { max-width: 480px; margin: 0 auto; min-height: 100vh; background-color: #FEFEF7; box-shadow: 0 0 25px rgba(220, 210, 180, 0.3); }
+  </style>
+</head>
+<body class="bg-[#FAFAEE]">
+
+<div id="app" class="app-container flex flex-col relative pb-20">
+
+  <!-- 1. 頂部 Header -->
+  <header class="sticky top-0 z-30 bg-[#FEFEF7]/90 backdrop-blur-md px-5 pt-4 pb-2 border-b border-[#F3EFCF]">
+    <div class="flex items-center justify-between mb-3">
+      <h1 class="text-2xl font-bold text-[#E69C24] tracking-wide flex items-center gap-1">
+        <span>Summer Travel</span>
+        <!-- 同步連線狀態標籤 -->
+        <span :class="isSynced ? 'bg-[#E4F2E7] text-[#2D7A47]' : 'bg-red-100 text-red-600'" class="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+          <span class="w-1.5 h-1.5 rounded-full" :class="isSynced ? 'bg-[#2D7A47]' : 'bg-red-600'"></span>
+          {{ isSynced ? '雲端已同步' : '同步中...' }}
+        </span>
+      </h1>
+      <!-- 功能導覽按鈕 -->
+      <nav class="flex items-center gap-1 bg-[#F7F3DA] p-1 rounded-2xl">
+        <button @click="currentTab = 'itinerary'" :class="currentTab === 'itinerary' ? 'bg-[#E69C24] text-white' : 'text-[#8C826B]'" class="p-2 rounded-xl"><i data-lucide="list-todo" class="w-4 h-4"></i></button>
+        <button @click="currentTab = 'map'" :class="currentTab === 'map' ? 'bg-[#E69C24] text-white' : 'text-[#8C826B]'" class="p-2 rounded-xl"><i data-lucide="map-pin" class="w-4 h-4"></i></button>
+        <button @click="currentTab = 'expenses'" :class="currentTab === 'expenses' ? 'bg-[#E69C24] text-white' : 'text-[#8C826B]'" class="p-2 rounded-xl"><i data-lucide="wallet" class="w-4 h-4"></i></button>
+        <button @click="currentTab = 'shopping'" :class="currentTab === 'shopping' ? 'bg-[#E69C24] text-white' : 'text-[#8C826B]'" class="p-2 rounded-xl"><i data-lucide="shopping-bag" class="w-4 h-4"></i></button>
+      </nav>
+    </div>
+
+    <!-- 橫向滑動天數 -->
+    <div v-if="currentTab === 'itinerary' || currentTab === 'expenses'" class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+      <button @click="selectedDay = 'TODO'" :class="selectedDay === 'TODO' ? 'bg-[#E4F2E7] text-[#2D7A47] border-2 border-[#A3D9B1]' : 'bg-[#F4F4EB] text-[#7A8A7C]'" class="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold flex flex-col items-center min-w-[52px]">
+        <span>PRE</span><span class="text-[10px] opacity-80">TODO</span>
+      </button>
+      <button v-for="d in totalDays" :key="d" @click="selectedDay = d" :class="selectedDay === d ? 'bg-[#FFF3C4] text-[#B87B14] border-2 border-[#E69C24]' : 'bg-[#F4F4EB] text-[#8C826B]'" class="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold flex flex-col items-center min-w-[60px]">
+  <span class="text-[10px] opacity-70">DAY {{ d }}</span>
+  <span class="text-xs font-bold">8/{{ d + 4 }}</span>
+</button>
+    </div>
+  </header>
+
+  <!-- 2. 主要內容區 -->
+  <main class="flex-1 px-4 pt-3">
+
+    <!-- A. 行程標籤頁 (Itinerary) -->
+    <div v-if="currentTab === 'itinerary'">
+      <!-- TODO 待辦事項頁面 -->
+      <div v-if="selectedDay === 'TODO'" class="space-y-3">
+        <div class="bg-[#E4F2E7]/60 p-4 rounded-2xl border border-[#C2E5CC]">
+          <h2 class="font-bold text-[#2D7A47] mb-2 text-sm flex items-center gap-1"><i data-lucide="check-square" class="w-4 h-4"></i> 行前準備與待辦事項</h2>
+          <div class="flex gap-2 mb-3">
+            <input v-model="newTodoText" @keyup.enter="addTodo" placeholder="新增待辦事項..." class="flex-1 px-3 py-2 text-sm bg-white rounded-xl border border-[#B8DEC3] outline-none">
+            <button @click="addTodo" class="bg-[#2D7A47] text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm">新增</button>
+          </div>
+          <ul class="space-y-2">
+            <li v-for="(todo, index) in todos" :key="index" class="flex items-center justify-between p-2.5 bg-white/80 rounded-xl border border-[#D5EBDC]">
+              <label class="flex items-center gap-2.5 cursor-pointer flex-1">
+                <input type="checkbox" v-model="todo.done" @change="syncToCloud" class="w-4 h-4 accent-[#2D7A47] rounded">
+                <span :class="{'line-through text-gray-400': todo.done}" class="text-sm font-medium">{{ todo.text }}</span>
+              </label>
+              <button @click="todos.splice(index, 1); syncToCloud();" class="text-gray-400 hover:text-red-500 p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 每日行程列表 -->
+      <div v-else class="space-y-3">
+        <div id="itinerary-list" class="space-y-3">
+          <div v-for="item in currentDayItems" :key="item.id" class="bg-white border border-[#F0EAD2] p-3.5 rounded-2xl shadow-sm">
+            <div class="flex items-center justify-between mb-2">
+              <div class="flex items-center gap-2">
+                <select v-model="item.category" @change="syncToCloud" :class="categoryStyle(item.category)" class="text-xs px-2 py-1 rounded-full font-bold outline-none cursor-pointer">
+                  <option value="景點">景點</option><option value="美食">美食</option><option value="購物">購物</option><option value="交通">交通</option><option value="航班">航班</option><option value="其他">其他</option>
+                </select>
+                <input type="time" v-model="item.time" @change="syncToCloud" class="text-xs font-bold text-gray-600 bg-[#F9F8F3] px-2 py-0.5 rounded-md border-0">
+              </div>
+              <button @click="deleteItem(item.id)" class="text-gray-300 hover:text-red-400 p-1"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>
+            <div class="space-y-1.5 pl-2">
+              <input v-model="item.location" @change="syncToCloud" placeholder="輸入地點名稱..." class="w-full text-base font-bold text-[#4A4A4A] border-b border-transparent focus:border-[#E69C24] outline-none">
+              <input v-model="item.note" @change="syncToCloud" placeholder="✏️ 備註 (門票、必吃清單等)" class="w-full text-xs text-gray-500 bg-[#FAF9F5] px-2.5 py-1.5 rounded-lg border-0 outline-none">
+              <div v-if="item.category === '景點'" class="mt-2 p-2.5 bg-[#FFF0F5] border border-[#FFD6E7] rounded-xl text-xs space-y-1.5">
+                <label class="flex items-center gap-2 text-[#C74375] font-bold cursor-pointer">
+                  <input type="checkbox" v-model="item.hasBabyFacility" @change="syncToCloud" class="accent-[#C74375] rounded">
+                  <span>🍼 設有育嬰設施</span>
+                </label>
+                <input v-if="item.hasBabyFacility" v-model="item.babyNote" @change="syncToCloud" placeholder="設施位置/細節備註..." class="w-full text-xs text-gray-600 bg-white/80 px-2 py-1 rounded-lg border border-[#FFC2D9] outline-none">
+              </div>
+              <div class="flex items-center gap-2 pt-1">
+                <a :href="'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(item.location || '目的地')" target="_blank" class="flex-1 py-1.5 bg-[#FFF8E8] text-[#B87B14] rounded-xl text-xs font-bold flex items-center justify-center gap-1 border border-[#F3E2B6]"><i data-lucide="map" class="w-3.5 h-3.5"></i> 地圖</a>
+                <a :href="'https://www.google.com/maps/dir/?api=1&destination=' + encodeURIComponent(item.location || '目的地')" target="_blank" class="flex-1 py-1.5 bg-[#EEF5FF] text-[#3B82F6] rounded-xl text-xs font-bold flex items-center justify-center gap-1 border border-[#C6DCFF]"><i data-lucide="navigation" class="w-3.5 h-3.5"></i> 導航</a>
+              </div>
+            </div>
+          </div>
+        </div>
+        <button @click="addNewItem" class="w-full py-3 bg-[#E69C24] hover:bg-[#D88F18] text-white font-bold rounded-2xl shadow-sm flex items-center justify-center gap-1.5"><i data-lucide="plus-circle" class="w-5 h-5"></i> 新增行程</button>
+      </div>
+    </div>
+
+    <!-- B. 地圖視角 (Map) -->
+    <div v-if="currentTab === 'map'" class="space-y-3">
+      <div class="bg-white p-3 rounded-2xl border border-[#F0EAD2]">
+        <h2 class="font-bold text-[#5C523D] text-sm mb-2 flex justify-between"><span>DAY {{ selectedDay }} 行程導覽地圖</span><span class="text-xs text-[#8C826B]">共 {{ currentDayItems.length }} 個地點</span></h2>
+        <div class="w-full h-64 bg-gray-100 rounded-xl overflow-hidden border relative">
+          <iframe width="100%" height="100%" frameborder="0" src="https://www.openstreetmap.org/export/embed.html?bbox=120.0,20.0,135.0,35.0&layer=mapnik"></iframe>
+        </div>
+      </div>
+    </div>
+
+    <!-- C. 共用即時記帳區 (Expenses) -->
+    <div v-if="currentTab === 'expenses'" class="space-y-3">
+      <div class="bg-[#FFF9E6] p-4 rounded-2xl border border-[#F3E7B2] space-y-3">
+        <div class="flex items-center justify-between border-b border-[#E8DFC0] pb-2 text-xs text-[#8C826B]">
+          <span class="font-bold">預設匯率 (外幣 ➔ TWD)</span>
+          <div class="flex items-center gap-1">
+            <span>1 外幣 =</span>
+            <input type="number" step="0.001" v-model.number="exchangeRate" @change="syncToCloud" class="w-16 text-center font-bold bg-white px-1 py-0.5 rounded border border-[#D5CA9F]">
+            <span>TWD</span>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-2 text-center">
+          <div class="bg-white/80 p-2.5 rounded-xl border border-[#E8DFC0]">
+            <div class="text-[11px] text-gray-500">DAY {{ selectedDay }} 消費</div>
+            <div class="text-base font-bold text-[#E69C24]">NT$ {{ Math.round(dayTotalTWD) }}</div>
+          </div>
+          <div class="bg-white/80 p-2.5 rounded-xl border border-[#E8DFC0]">
+            <div class="text-[11px] text-gray-500">全行程總消費</div>
+            <div class="text-base font-bold text-[#2D7A47]">NT$ {{ Math.round(grandTotalTWD) }}</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 新增記帳（可標示付款人） -->
+      <div class="bg-white p-3.5 rounded-2xl border border-[#F0EAD2] space-y-2">
+        <div class="font-bold text-xs text-gray-600 mb-1">新增一筆共同支出</div>
+        <div class="flex gap-1.5">
+          <input v-model="newExpense.payer" placeholder="付款人" class="w-16 px-2 py-1.5 text-xs bg-[#FAF9F5] rounded-xl border border-[#E8DFC0]">
+          <input v-model="newExpense.item" placeholder="品項..." class="flex-1 px-2 py-1.5 text-xs bg-[#FAF9F5] rounded-xl border border-[#E8DFC0]">
+          <input v-model.number="newExpense.amount" type="number" placeholder="金額" class="w-16 px-2 py-1.5 text-xs bg-[#FAF9F5] rounded-xl border border-[#E8DFC0]">
+          <select v-model="newExpense.currency" class="text-xs bg-[#FAF9F5] px-1 py-1.5 rounded-xl border border-[#E8DFC0] font-bold">
+            <option value="FOREIGN">外幣</option><option value="TWD">台幣 $</option>
+          </select>
+        </div>
+        <button @click="addExpense" class="w-full py-2 bg-[#E69C24] text-white text-xs font-bold rounded-xl shadow-xs">新增記帳（自動同步全家手機）</button>
+      </div>
+
+      <!-- 當天帳目列表 -->
+      <div class="bg-white p-3.5 rounded-2xl border border-[#F0EAD2] space-y-2">
+        <div class="font-bold text-xs text-gray-500 mb-2">DAY {{ selectedDay }} 支出明細</div>
+        <div v-if="currentDayExpenses.length === 0" class="text-center py-4 text-xs text-gray-300">今天還沒有記帳喔</div>
+        <ul class="space-y-2">
+          <li v-for="exp in currentDayExpenses" :key="exp.id" class="flex items-center justify-between text-xs py-1.5 border-b border-gray-50 last:border-0">
+            <div>
+              <span class="font-bold text-[#B87B14] bg-[#FFF3C4] px-1.5 py-0.5 rounded text-[10px] mr-1">{{ exp.payer || '大家' }}</span>
+              <span class="font-medium text-gray-700">{{ exp.item }}</span>
+            </div>
+            <div class="flex items-center gap-3">
+              <div class="text-right">
+                <span class="font-bold text-gray-800">{{ exp.currency === 'FOREIGN' ? '外幣' : '$' }} {{ exp.amount }}</span>
+                <span v-if="exp.currency === 'FOREIGN'" class="text-[10px] text-gray-400 block">≈ NT$ {{ Math.round(exp.amount * exchangeRate) }}</span>
+              </div>
+              <button @click="deleteExpense(exp.id)" class="text-gray-300 hover:text-red-400"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- D. 購物清單 (Shopping) -->
+    <div v-if="currentTab === 'shopping'" class="space-y-3">
+      <div class="bg-[#FFF0F5] p-4 rounded-2xl border border-[#FFD6E7]">
+        <h2 class="font-bold text-[#C74375] mb-2 text-sm flex items-center gap-1"><i data-lucide="shopping-bag" class="w-4 h-4"></i> 必買購物清單</h2>
+        <div class="flex gap-2 mb-3">
+          <input v-model="newShoppingText" @keyup.enter="addShopping" placeholder="新增想買的物品、伴手禮..." class="flex-1 px-3 py-2 text-sm bg-white rounded-xl border border-[#FFC2D9] outline-none">
+          <button @click="addShopping" class="bg-[#C74375] text-white px-4 py-2 rounded-xl text-sm font-bold shadow-sm">新增</button>
+        </div>
+        <ul class="space-y-2">
+          <li v-for="(shop, index) in shoppingList" :key="index" class="flex items-center justify-between p-2.5 bg-white/90 rounded-xl border border-[#FFD6E7]">
+            <label class="flex items-center gap-2.5 cursor-pointer flex-1">
+              <input type="checkbox" v-model="shop.done" @change="syncToCloud" class="w-4 h-4 accent-[#C74375] rounded">
+              <span :class="{'line-through text-gray-400': shop.done}" class="text-sm font-medium">{{ shop.text }}</span>
+            </label>
+            <button @click="shoppingList.splice(index, 1); syncToCloud();" class="text-gray-400 hover:text-red-500 p-1"><i data-lucide="x" class="w-4 h-4"></i></button>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+  const { createApp, ref, computed, onMounted, nextTick, watch } = Vue;
+
+  createApp({
+    setup() {
+      const currentTab = ref('itinerary');
+      const selectedDay = ref(1);
+      const totalDays = ref(12);
+      const exchangeRate = ref(1.0);
+      const isSynced = ref(false);
+
+      const todos = ref([]);
+      const shoppingList = ref([]);
+      const itineraryItems = ref([]);
+      const expenses = ref([]);
+
+      const newTodoText = ref('');
+      const newShoppingText = ref('');
+      const newExpense = ref({ payer: '我', item: '', amount: null, currency: 'FOREIGN' });
+
+      // 將資料即時推送到 Firebase 雲端
+      const syncToCloud = async () => {
+        if (!window.db) return;
+        try {
+          await window.setDoc(window.doc(window.db, "trips", "summer_travel_2026"), {
+            todos: todos.value,
+            shoppingList: shoppingList.value,
+            itineraryItems: itineraryItems.value,
+            expenses: expenses.value,
+            exchangeRate: exchangeRate.value
+          });
+        } catch(e) { console.error("雲端同步失敗", e); }
+      };
+
+      // 監聽 Firebase 雲端資料
+      const listenCloudData = () => {
+        let timer = setInterval(() => {
+          if (window.db && window.onSnapshot) {
+            clearInterval(timer);
+            window.onSnapshot(window.doc(window.db, "trips", "summer_travel_2026"), (snapshot) => {
+              if (snapshot.exists()) {
+                const data = snapshot.data();
+                todos.value = data.todos || [];
+                shoppingList.value = data.shoppingList || [];
+                itineraryItems.value = data.itineraryItems || [];
+                expenses.value = data.expenses || [];
+                exchangeRate.value = data.exchangeRate || 1.0;
+              }
+              isSynced.value = true;
+              refreshIcons();
+            });
+          }
+        }, 300);
+      };
+
+      // 計算屬性
+      const currentDayItems = computed(() => itineraryItems.value.filter(item => item.day === selectedDay.value));
+      const currentDayExpenses = computed(() => expenses.value.filter(exp => exp.day === selectedDay.value));
+      
+      const dayTotalTWD = computed(() => {
+        return currentDayExpenses.value.reduce((sum, exp) => sum + (exp.currency === 'FOREIGN' ? exp.amount * exchangeRate.value : exp.amount), 0);
+      });
+
+      const grandTotalTWD = computed(() => {
+        return expenses.value.reduce((sum, exp) => sum + (exp.currency === 'FOREIGN' ? exp.amount * exchangeRate.value : exp.amount), 0);
+      });
+
+      const categoryStyle = (cat) => {
+        const styles = { '景點': 'bg-[#EBF5FF] text-[#2B7FFF]', '美食': 'bg-[#FFF0F0] text-[#FF4D4D]', '購物': 'bg-[#FFF0F5] text-[#C74375]', '交通': 'bg-[#E6F8F6] text-[#14B8A6]', '航班': 'bg-[#FFF3C4] text-[#B87B14]', '其他': 'bg-gray-100 text-gray-600' };
+        return styles[cat] || styles['其他'];
+      };
+
+      const addNewItem = () => {
+        itineraryItems.value.push({ id: Date.now(), day: selectedDay.value, category: '景點', time: '12:00', location: '', note: '', hasBabyFacility: false, babyNote: '' });
+        syncToCloud();
+      };
+
+      const deleteItem = (id) => {
+        itineraryItems.value = itineraryItems.value.filter(i => i.id !== id);
+        syncToCloud();
+      };
+
+      const addTodo = () => {
+        if (!newTodoText.value.trim()) return;
+        todos.value.push({ text: newTodoText.value.trim(), done: false });
+        newTodoText.value = '';
+        syncToCloud();
+      };
+
+      const addShopping = () => {
+        if (!newShoppingText.value.trim()) return;
+        shoppingList.value.push({ text: newShoppingText.value.trim(), done: false });
+        newShoppingText.value = '';
+        syncToCloud();
+      };
+
+      const addExpense = () => {
+        if (!newExpense.value.item || !newExpense.value.amount) return;
+        expenses.value.push({ id: Date.now(), day: selectedDay.value, payer: newExpense.value.payer, item: newExpense.value.item, amount: newExpense.value.amount, currency: newExpense.value.currency });
+        newExpense.value.item = '';
+        newExpense.value.amount = null;
+        syncToCloud();
+      };
+
+      const deleteExpense = (id) => {
+        expenses.value = expenses.value.filter(e => e.id !== id);
+        syncToCloud();
+      };
+
+      const refreshIcons = () => {
+        nextTick(() => { if (window.lucide) lucide.createIcons(); });
+      };
+
+      watch([currentTab, selectedDay], () => refreshIcons());
+
+      onMounted(() => {
+        listenCloudData();
+      });
+
+      return {
+        currentTab, selectedDay, totalDays, exchangeRate, isSynced,
+        newTodoText, todos, newShoppingText, shoppingList,
+        itineraryItems, currentDayItems, newExpense, expenses, currentDayExpenses,
+        dayTotalTWD, grandTotalTWD, categoryStyle, addNewItem, deleteItem,
+        addTodo, addShopping, addExpense, deleteExpense, syncToCloud
+      };
+    }
+  }).mount('#app');
+</script>
+</body>
+</html>
