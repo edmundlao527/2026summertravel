@@ -181,6 +181,7 @@
             <option value="交通">🚗 交通</option>
             <option value="飲食">🍜 飲食</option>
             <option value="購物">🛍️ 購物</option>
+            <option value="便利店">🏪 便利店</option>
             <option value="娛樂">🎟️ 娛樂</option>
             <option value="其他">📦 其他</option>
           </select>
@@ -330,7 +331,7 @@
       });
 
       const categoryStyle = (cat) => {
-        const styles = { '景點': 'bg-[#EBF5FF] text-[#2B7FFF]', '美食': 'bg-[#FFF0F0] text-[#FF4D4D]', '購物': 'bg-[#FFF0F5] text-[#C74375]', '交通': 'bg-[#E6F8F6] text-[#14B8A6]', '航班': 'bg-[#FFF3C4] text-[#B87B14]', '其他': 'bg-gray-100 text-gray-600' };
+        const styles = { '景點': 'bg-[#EBF5FF] text-[#2B7FFF]', '美食': 'bg-[#FFF0F0] text-[#FF4D4D]', '購物': 'bg-[#FFF0F5] text-[#C74375]', '便利店': 'bg-[#E4F2E7] text-[#2D7A47]','交通': 'bg-[#E6F8F6] text-[#14B8A6]', '航班': 'bg-[#FFF3C4] text-[#B87B14]', '其他': 'bg-gray-100 text-gray-600' };
         return styles[cat] || styles['其他'];
       };
 
